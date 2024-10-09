@@ -62,7 +62,7 @@
             </div>
         </div>
         <script>
-            var videos = [];
+            var videos = {};
             function loadYoutubeVideo(id, videoId, muted) {
                 videos[id] = new YT.Player(id, {
                     videoId, // YouTube Video ID
@@ -91,8 +91,8 @@
                 var videoId = event.target.closest(".video").querySelector('iframe').id;
                 var player = videos[videoId];
                 if (player.isMuted()) {
-                    videos.forEach((video) => {
-                        video.mute();
+                    Object.keys(videos).forEach((videoId) => {
+                        videos[videoId].mute();
                     });
                     player.unMute();
                 } else {
