@@ -108,7 +108,7 @@
                 }
             }
             function adjustVolume(event, adjustment) {
-                //event.stopPropagation();
+                event.stopPropagation();
                 var videoId = event.target.closest(".video").querySelector('iframe').id;
                 var player = videos[videoId];
                 player.setVolume(Math.max(0, Math.min(player.getVolume() + adjustment, 100)));
