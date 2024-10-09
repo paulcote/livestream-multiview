@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <script async src="https://www.youtube.com/iframe_api"></script>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                flex-wrap: wrap;
+                background-color: black;
+                height
+            }
+            .video {
+                width: 50%;
+                height: 50%;
+                position: relative;
+            }
+            .video iframe {
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+            }
+            .video .controls {
+                position: absolute;
+                left: 10px;
+                bottom: 10px;
+                z-index: 10;
+                opacity: 0;
+                transition: opacity 0.25s;
+            }
+            .video.controls .controls {
+                opacity: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player1"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Mute</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player2"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Mute</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player3"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Mute</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player4"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Mute</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <script>
+            var videos = [];
+            function loadYoutubeVideo(id, videoId, muted) {
+                videos[id] = new YT.Player(id, {
+                    videoId, // YouTube Video ID
+                    playerVars: {
+                        autoplay: 1,        // Auto-play the video on load
+                        controls: 0,        // Show pause/play buttons in player
+                        showinfo: 0,        // Hide the video title
+                        modestbranding: 1,  // Hide the Youtube Logo
+                        loop: 1,            // Run the video in a loop
+                        fs: 0,              // Hide the full screen button
+                        cc_load_policy: 0, // Hide closed captions
+                        iv_load_policy: 3,  // Hide the Video Annotations
+                        autohide: 0,         // Hide video controls when playing,
+                        mute: 1,
+                    }
+                });
+            }
+            function onYouTubeIframeAPIReady() {
+                loadYoutubeVideo('player1', 'h5mPwGv2j3I');
+                loadYoutubeVideo('player2', 'zKgbLJ4cafU');
+                loadYoutubeVideo('player3', 'COhyFxhXBBc');
+                loadYoutubeVideo('player4', 'Yu9hC5MokCA');
+            }
+            function toggleMute(event) {
+                event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                if (player.isMuted()) {
+                    videos.forEach((video) => {
+                        video.mute();
+                    });
+                    player.unMute();
+                } else {
+                    player.mute();
+                }
+            }
+            function goLive(event) {
+                event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                player.stopVideo();
+                player.playVideo();
+            }
+           </script>
+    </body>
+</html>
