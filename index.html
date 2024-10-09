@@ -37,6 +37,8 @@
             <div id="player1"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
                 <button onclick="goLive(event)">Live</button>
             </div>
         </div>
@@ -44,6 +46,8 @@
             <div id="player2"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
                 <button onclick="goLive(event)">Live</button>
             </div>
         </div>
@@ -51,6 +55,8 @@
             <div id="player3"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
                 <button onclick="goLive(event)">Live</button>
             </div>
         </div>
@@ -58,6 +64,8 @@
             <div id="player4"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
                 <button onclick="goLive(event)">Live</button>
             </div>
         </div>
@@ -98,6 +106,12 @@
                 } else {
                     player.mute();
                 }
+            }
+            function adjustVolume(event, adjustment) {
+                //event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                player.setVolume(Math.max(0, Math.min(player.getVolume() + adjustment, 100)));
             }
             function goLive(event) {
                 //event.stopPropagation();
