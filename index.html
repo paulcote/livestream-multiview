@@ -33,7 +33,8 @@
     </head>
     <body>
         <div class="video" onclick="this.classList.toggle('controls');">
-            <div id="player1"></div>
+            <!--<div id="player1"></div>-->
+            <iframe id="player1" src="https://www.youtube.com/embed/live_stream?channel=UCeY0bbntWzzVIaj2z3QigXg?enablejsapi=1" />
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
                 <button onclick="adjustVolume(event, -10)">-</button>
@@ -88,7 +89,7 @@
                 });
             }
             function onYouTubeIframeAPIReady() {
-                loadYoutubeVideo('player1', 'bQfkJiAAlYU');
+                loadYoutubeVideo('player1', null);
                 loadYoutubeVideo('player2', 'zKgbLJ4cafU');
                 loadYoutubeVideo('player3', 'IATdZJBVb-M');
                 loadYoutubeVideo('player4', 'vvpxqNi7v0E');
