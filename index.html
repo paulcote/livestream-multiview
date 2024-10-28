@@ -33,8 +33,7 @@
     </head>
     <body>
         <div class="video" onclick="this.classList.toggle('controls');">
-            <!--<div id="player1"></div>-->
-            <iframe id="player1" frameborder="0" src="https://www.youtube.com/embed/live_stream?channel=UCeY0bbntWzzVIaj2z3QigXg&autoplay=1&controls=0&showinfo=0&modestbranding=1&loop=1&fs=0&cc_load_policy=0&iv_load_policy=3&autohide=0&mute=1&enablejsapi=1&origin=https%3A%2F%2Fpaulcote.github.io&widgetid=1"></iframe>
+            <div id="player1"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
                 <button onclick="adjustVolume(event, -10)">-</button>
@@ -43,8 +42,7 @@
             </div>
         </div>
         <div class="video" onclick="this.classList.toggle('controls');">
-            <!--<div id="player2"></div>-->
-            <iframe id="player2" frameborder="0" src="https://www.youtube.com/embed/live_stream?channel=UC8p1vwvWtl6T73JiExfWs1g&autoplay=1&controls=0&showinfo=0&modestbranding=1&loop=1&fs=0&cc_load_policy=0&iv_load_policy=3&autohide=0&mute=1&enablejsapi=1&origin=https%3A%2F%2Fpaulcote.github.io&widgetid=2"></iframe>
+            <div id="player2"></div>
             <div class="controls">
                 <button onclick="toggleMute(event)">Sound</button>
                 <button onclick="adjustVolume(event, -10)">-</button>
@@ -90,10 +88,13 @@
                 });
             }
             function onYouTubeIframeAPIReady() {
-                loadYoutubeVideo('player1', null);
-                loadYoutubeVideo('player2', null);
-                loadYoutubeVideo('player3', 'IATdZJBVb-M');
-                loadYoutubeVideo('player4', 'vvpxqNi7v0E');
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+
+                loadYoutubeVideo('player1', urlParams.get('tl'));
+                loadYoutubeVideo('player2', urlParams.get('tr'));
+                loadYoutubeVideo('player3', urlParams.get('bl'));
+                loadYoutubeVideo('player4', urlParams.get('br'));
             }
             function toggleMute(event) {
                 //event.stopPropagation();
