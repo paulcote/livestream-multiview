@@ -1,5 +1,6 @@
 <html>
     <head>
+        <script type="module" src="https://unpkg.com/x-frame-bypass"></script>
         <script async src="https://www.youtube.com/iframe_api"></script>
         <style>
             body {
@@ -41,10 +42,10 @@
     </head>
     <body>
         <div class="tracker">
-          <iframe src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
+          <iframe is="x-frame-bypass" src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
         </div>
         <div class="tracker">
-          <iframe src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
+          <iframe is="x-frame-bypass" src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
         </div>
         <div class="video" onclick="this.classList.toggle('controls');">
             <div id="player1"></div>
