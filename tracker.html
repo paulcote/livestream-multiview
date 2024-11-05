@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <script async src="https://www.youtube.com/iframe_api"></script>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                flex-wrap: wrap;
+                background-color: black;
+            }
+            .tracker {
+              width: 25vw;
+              height: 100vh;
+            }
+            .tracker iframe {
+                width: 100%;
+                height: 100%;
+            }
+            .video {
+                width: 50vw;
+                height: 50vh;
+                position: relative;
+            }
+            .video iframe {
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+            }
+            .video .controls {
+                position: absolute;
+                left: 10px;
+                bottom: 10px;
+                z-index: 10;
+                opacity: 0;
+                transition: opacity 0.25s;
+            }
+            .video.controls .controls {
+                opacity: 1;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="tracker">
+          <iframe src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
+        </div>
+        <div class="tracker">
+          <iframe src="https://www.nytimes.com/interactive/2020/11/03/us/elections/results-president.html"></iframe>
+        </div>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player1"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <div class="video" onclick="this.classList.toggle('controls');">
+            <div id="player2"></div>
+            <div class="controls">
+                <button onclick="toggleMute(event)">Sound</button>
+                <button onclick="adjustVolume(event, -10)">-</button>
+                <button onclick="adjustVolume(event, 10)">+</button>
+                <button onclick="goLive(event)">Live</button>
+            </div>
+        </div>
+        <script>
+            var videos = {};
+            function loadYoutubeVideo(id, videoId, muted) {
+                videos[id] = new YT.Player(id, {
+                    videoId, // YouTube Video ID
+                    playerVars: {
+                        autoplay: 1,        // Auto-play the video on load
+                        controls: 0,        // Show pause/play buttons in player
+                        showinfo: 0,        // Hide the video title
+                        modestbranding: 1,  // Hide the Youtube Logo
+                        loop: 1,            // Run the video in a loop
+                        fs: 0,              // Hide the full screen button
+                        cc_load_policy: 0, // Hide closed captions
+                        iv_load_policy: 3,  // Hide the Video Annotations
+                        autohide: 0,         // Hide video controls when playing,
+                        mute: 1,
+                    }
+                });
+            }
+            function onYouTubeIframeAPIReady() {
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+
+                loadYoutubeVideo('player1', urlParams.get('tv'));
+                loadYoutubeVideo('player2', urlParams.get('bv'));
+            }
+            function toggleMute(event) {
+                //event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                if (player.isMuted()) {
+                    //Object.keys(videos).forEach((videoId) => {
+                    //    videos[videoId].mute();
+                    //});
+                    player.unMute();
+                } else {
+                    player.mute();
+                }
+            }
+            function adjustVolume(event, adjustment) {
+                event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                player.setVolume(Math.max(0, Math.min(player.getVolume() + adjustment, 100)));
+            }
+            function goLive(event) {
+                //event.stopPropagation();
+                var videoId = event.target.closest(".video").querySelector('iframe').id;
+                var player = videos[videoId];
+                player.stopVideo();
+                player.playVideo();
+            }
+           </script>
+    </body>
+</html>
