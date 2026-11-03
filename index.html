@@ -533,35 +533,53 @@ document.getElementById('rotBtn').onclick = () => {
 if (standalone) document.getElementById('fsBtn').style.display = 'none';
 
 // ---------- share / import (all multiview.* localStorage keys, packed into the URL hash) ----------
-function b64enc(str) {
-    const bytes = new TextEncoder().encode(str);
+function bytesToB64(bytes) {
     let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-function b64dec(b64) {
+function b64ToBytes(b64) {
     b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
-    const bin = atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
-    return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+    return Uint8Array.from(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)), c => c.charCodeAt(0));
+}
+async function pipe(bytes, stream) {
+    const w = stream.writable.getWriter(); w.write(bytes); w.close();
+    return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
+// Compact + deflate-compressed so the link stays short enough for chat apps.
+async function pack(str) {
+    const bytes = new TextEncoder().encode(str);
+    if (window.CompressionStream) return 'z' + bytesToB64(await pipe(bytes, new CompressionStream('deflate-raw')));
+    return 'j' + bytesToB64(bytes);
+}
+async function unpack(t) {
+    const body = b64ToBytes(t.slice(1));
+    const bytes = t[0] === 'z' ? await pipe(body, new DecompressionStream('deflate-raw')) : body;
+    return new TextDecoder().decode(bytes);
 }
 function collectStorage() {
     const out = {};
     try {
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k.startsWith('multiview.')) out[k] = localStorage.getItem(k);
+            if (!k.startsWith('multiview.')) continue;
+            const raw = localStorage.getItem(k);
+            let val = raw;
+            try { val = JSON.parse(raw); } catch {}   // store parsed so quotes aren't escaped twice
+            out[k.slice('multiview.'.length)] = val;
         }
     } catch {}
     return out;
 }
-function buildShareUrl() {
-    return location.origin + location.pathname + '#setup=' + b64enc(JSON.stringify(collectStorage()));
+async function buildShareUrl() {
+    return location.origin + location.pathname + '#s=' + await pack(JSON.stringify(collectStorage()));
 }
 
 const shareBox = document.getElementById('shareBox'), shareUrl = document.getElementById('shareUrl');
-document.getElementById('shareBtn').onclick = () => {
-    shareUrl.value = buildShareUrl();
+document.getElementById('shareBtn').onclick = async () => {
+    shareUrl.value = '';
     document.getElementById('shareNative').style.display = navigator.share ? '' : 'none';
     shareBox.classList.add('show');
+    shareUrl.value = await buildShareUrl();
 };
 document.getElementById('shareClose').onclick = () => shareBox.classList.remove('show');
 document.getElementById('shareNative').onclick = () => {
@@ -575,14 +593,23 @@ document.getElementById('shareCopy').onclick = async e => {
 };
 shareUrl.addEventListener('focus', () => shareUrl.select());
 
-(function checkImport() {
-    const m = location.hash.match(/^#setup=([\w-]+)/);
+(async function checkImport() {
+    const m = location.hash.match(/^#(s|setup)=([\w-]+)/);
     if (!m) return;
-    let data;
+    const clean = () => history.replaceState(null, '', location.pathname + location.search);
+    let data = {};
     try {
-        data = JSON.parse(b64dec(m[1]));
-        if (!data || typeof data !== 'object') throw 0;
-    } catch { history.replaceState(null, '', location.pathname + location.search); return; }
+        if (m[1] === 'setup') {   // legacy long links: { "multiview.key": "raw string" }
+            const old = JSON.parse(new TextDecoder().decode(b64ToBytes(m[2])));
+            Object.keys(old).forEach(k => { data[k] = old[k]; });
+        } else {
+            const compact = JSON.parse(await unpack(m[2]));
+            Object.keys(compact).forEach(k => {
+                const v = compact[k];
+                data['multiview.' + k] = typeof v === 'string' ? v : JSON.stringify(v);
+            });
+        }
+    } catch { clean(); return; }
     const keys = Object.keys(data).filter(k => k.startsWith('multiview.') && typeof data[k] === 'string');
     let vids = 0, chans = 0;
     try { vids = Object.values(JSON.parse(data['multiview.videos.v1'] || '{}')).filter(Boolean).length; } catch {}
@@ -590,14 +617,9 @@ shareUrl.addEventListener('focus', () => shareUrl.select());
     document.getElementById('importSummary').textContent = vids + ' videos, ' + chans + ' channels';
     const box = document.getElementById('importBox');
     box.classList.add('show');
-    document.getElementById('importNo').onclick = () => {
-        history.replaceState(null, '', location.pathname + location.search);
-        box.classList.remove('show');
-    };
+    document.getElementById('importNo').onclick = () => { clean(); box.classList.remove('show'); };
     document.getElementById('importYes').onclick = () => {
-        try {
-            keys.forEach(k => localStorage.setItem(k, data[k]));
-        } catch {}
+        try { keys.forEach(k => localStorage.setItem(k, data[k])); } catch {}
         location.replace(location.pathname);
     };
 })();
