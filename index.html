@@ -32,6 +32,13 @@
     }
     .tile.has-video .empty { display: none; }
     .tile { -webkit-touch-callout: none; touch-action: manipulation; }
+    .minigrid { display: none; position: absolute; inset: 0; grid-template: 1fr 1fr / 1fr 1fr; gap: 2px; background: #222; }
+    body.mini .minigrid { display: grid; }
+    body.mini .tile[data-slot=br] > .mount,
+    body.mini .tile[data-slot=br] > .empty,
+    body.mini .tile[data-slot=br] > .panel { display: none; }
+    .mini-tile .empty { font-size: 11px; padding: 8px; }
+    @media (max-aspect-ratio: 3/4) { .minigrid { grid-template: 1fr / repeat(4, 1fr); } }
     .tile.audio::after {
         content: "🔊"; position: absolute; top: 8px; right: 8px; z-index: 5; font-size: 14px;
         background: rgba(0,0,0,.55); border-radius: 8px; padding: 4px 7px; pointer-events: none;
@@ -109,6 +116,7 @@
 <div id="hotspot"></div>
 <div id="fab">
     <button id="fsBtn">⛶ Fullscreen</button>
+    <button id="miniBtn" title="Bottom-right shows 4 small videos from your saved channels">▦ Mini mode</button>
     <button id="rotBtn" title="Reload all streams">↻ Reload</button>
     <button id="shareBtn" title="Share your setup to another device">⇪ Share setup</button>
 </div>
@@ -147,6 +155,12 @@
 
 <script>
 const SLOTS = ['tl', 'tr', 'bl', 'br'];
+const MINI = ['m1', 'm2', 'm3', 'm4'];
+const ALL_SLOTS = SLOTS.concat(MINI);
+const MINI_KEY = 'multiview.mini.v1';
+let miniMode = false;
+try { miniMode = localStorage.getItem(MINI_KEY) === '1'; } catch {}
+const miniIds = {};
 const STORE_KEY = 'multiview.videos.v1';
 
 // ---------- URL parsing ----------
@@ -289,36 +303,41 @@ function buildTile(slot) {
     panel.querySelector('[data-a=vol]').addEventListener('input', e => {
         const p = players[slot];
         if (!p) return;
-        p.setVolume(+e.target.value);
-        if (+e.target.value > 0 && p.isMuted()) p.unMute();
-        refreshControls(slot);
+        if (+e.target.value > 0 && audioSlot !== slot) soloAudio(slot);
+        else p.setVolume(+e.target.value);
     });
     return el;
 }
 
 // Toggle audio on one tile; unmuting it mutes all the others.
+// The YouTube API's isMuted() lags behind mute()/unMute(), so track who has audio ourselves.
+let audioSlot = null;
 function soloAudio(slot) {
     const p = players[slot];
-    if (!p || !p.isMuted) return;
-    if (p.isMuted()) {
-        SLOTS.forEach(s => { if (s !== slot && players[s] && players[s].mute) players[s].mute(); });
-        p.unMute();
-        if (p.getVolume() === 0) p.setVolume(100);
-    } else {
+    if (!p) return;
+    if (audioSlot === slot) {
         p.mute();
+        audioSlot = null;
+    } else {
+        ALL_SLOTS.forEach(s => { if (s !== slot && players[s]) players[s].mute(); });
+        p.unMute();
+        const vol = tiles[slot].querySelector('[data-a=vol]');
+        if (vol && !(+vol.value > 0)) vol.value = 100;
+        p.setVolume(vol ? +vol.value : 100);
+        audioSlot = slot;
     }
-    SLOTS.forEach(refreshControls);
+    ALL_SLOTS.forEach(refreshControls);
 }
 
 function refreshControls(slot) {
-    const p = players[slot], el = tiles[slot];
-    if (!p || !p.isMuted) return;
-    const muted = p.isMuted();
+    const el = tiles[slot];
+    const muted = audioSlot !== slot;
     const b = el.querySelector('[data-a=mute]');
-    b.textContent = muted ? '🔇 Muted' : '🔊 Sound';
-    b.classList.toggle('on', !muted);
+    if (b) {
+        b.textContent = muted ? '🔇 Muted' : '🔊 Sound';
+        b.classList.toggle('on', !muted);
+    }
     el.classList.toggle('audio', !muted);
-    el.querySelector('[data-a=vol]').value = p.getVolume();
 }
 
 // ---------- saved channels ----------
@@ -350,6 +369,58 @@ function renderChannels() {
             }
         });
     });
+    refreshMini();
+}
+
+// Mini mode: bottom-right becomes 4 small videos, auto-filled with saved channels
+// that aren't already showing in the other three tiles.
+function refreshMini() {
+    if (!miniMode) return;
+    const used = new Set(['tl', 'tr', 'bl'].map(s => state[s]).filter(Boolean));
+    const pool = channels.map(c => c.v).filter(v => !used.has(v));
+    MINI.forEach((m, i) => {
+        const id = pool[i] || null;
+        if (miniIds[m] === id) return;
+        miniIds[m] = id;
+        if (audioSlot === m) audioSlot = null;
+        setVideo(m, id);
+    });
+    ALL_SLOTS.forEach(refreshControls);
+}
+
+function applyMiniMode() {
+    try { localStorage.setItem(MINI_KEY, miniMode ? '1' : '0'); } catch {}
+    document.body.classList.toggle('mini', miniMode);
+    document.getElementById('miniBtn').classList.toggle('on', miniMode);
+    if (miniMode) {
+        if (audioSlot === 'br') { if (players.br) players.br.mute(); audioSlot = null; }
+        if (players.br) players.br.stopVideo();
+        refreshMini();
+    } else {
+        MINI.forEach(m => {
+            if (audioSlot === m) audioSlot = null;
+            miniIds[m] = null;
+            tiles[m].classList.remove('has-video');
+            if (players[m]) players[m].stopVideo();
+        });
+        if (state.br) setVideo('br', state.br);
+    }
+    ALL_SLOTS.forEach(refreshControls);
+}
+
+function buildMiniTile(slot) {
+    const el = document.createElement('div');
+    el.className = 'tile mini-tile';
+    el.innerHTML = '<div class="mount"></div><div class="empty">Save more channels (☆) to fill this</div>';
+    tiles[slot] = el;
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    el.addEventListener('click', e => {
+        e.stopPropagation();
+        Object.values(tiles).forEach(t => t.classList.remove('open'));
+        soloAudio(slot);
+    });
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    return el;
 }
 
 function shortName(t) {
@@ -379,16 +450,17 @@ async function saveChannel(slot, btn) {
 }
 
 function setVideo(slot, id) {
-    state[slot] = id;
-    save();
-    renderChannels();
+    const isMain = SLOTS.includes(slot);
+    if (isMain) { state[slot] = id; save(); renderChannels(); }
     tiles[slot].classList.toggle('has-video', !!id);
     if (!apiReady) return;
     const p = players[slot];
+    if (slot === 'br' && miniMode) { if (p) p.stopVideo(); return; } // hidden while mini mode is on
+    if (!id && audioSlot === slot) audioSlot = null;
     if (!id) { if (p) p.stopVideo(); const f = tiles[slot].querySelector('iframe'); if (f) f.style.visibility = 'hidden'; return; }
     const f = tiles[slot].querySelector('iframe');
     if (f) f.style.visibility = '';
-    if (p) { p.loadVideoById(id); p.mute(); refreshControls(slot); }
+    if (p) { p.loadVideoById(id); if (audioSlot !== slot) p.mute(); refreshControls(slot); }
     else createPlayer(slot, id);
 }
 
@@ -412,6 +484,7 @@ function createPlayer(slot, id) {
 function onYouTubeIframeAPIReady() {
     apiReady = true;
     SLOTS.forEach(s => { if (state[s]) setVideo(s, state[s]); });
+    MINI.forEach(m => { if (miniIds[m]) setVideo(m, miniIds[m]); });
 }
 window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
@@ -422,7 +495,16 @@ SLOTS.forEach(s => {
     tiles[s].classList.toggle('has-video', !!state[s]);
 });
 
+const miniGrid = document.createElement('div');
+miniGrid.className = 'minigrid';
+tiles.br.dataset.slot = 'br';
+tiles.br.appendChild(miniGrid);
+MINI.forEach(m => miniGrid.appendChild(buildMiniTile(m)));
+
 renderChannels();
+document.body.classList.toggle('mini', miniMode);
+document.getElementById('miniBtn').classList.toggle('on', miniMode);
+document.getElementById('miniBtn').onclick = () => { miniMode = !miniMode; applyMiniMode(); };
 
 // ---------- fullscreen / toolbar ----------
 const root = document.documentElement;
@@ -445,7 +527,8 @@ const hint = document.getElementById('hint');
 document.getElementById('hintClose').onclick = () => hint.classList.remove('show');
 document.getElementById('fsBtn').onclick = toggleFullscreen;
 document.getElementById('rotBtn').onclick = () => {
-    SLOTS.forEach(s => { if (state[s] && players[s]) { players[s].loadVideoById(state[s]); players[s].mute(); } });
+    SLOTS.forEach(s => { if (miniMode && s === 'br') return; if (state[s] && players[s]) { players[s].loadVideoById(state[s]); if (audioSlot !== s) players[s].mute(); } });
+    if (miniMode) MINI.forEach(m => { if (miniIds[m] && players[m]) { players[m].loadVideoById(miniIds[m]); if (audioSlot !== m) players[m].mute(); } });
 };
 if (standalone) document.getElementById('fsBtn').style.display = 'none';
 
