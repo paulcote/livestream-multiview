@@ -161,6 +161,8 @@ const MINI_KEY = 'multiview.mini.v1';
 let miniMode = false;
 try { miniMode = localStorage.getItem(MINI_KEY) === '1'; } catch {}
 const miniIds = {};
+const watch = {};    // stall watchdog bookkeeping per slot
+const errored = {};  // slots whose video failed permanently (private, embedding disabled...)
 const STORE_KEY = 'multiview.videos.v1';
 
 // ---------- URL parsing ----------
@@ -451,6 +453,7 @@ async function saveChannel(slot, btn) {
 
 function setVideo(slot, id) {
     const isMain = SLOTS.includes(slot);
+    delete watch[slot]; errored[slot] = false;
     if (isMain) { state[slot] = id; save(); renderChannels(); }
     tiles[slot].classList.toggle('has-video', !!id);
     if (!apiReady) return;
@@ -477,7 +480,10 @@ function createPlayer(slot, id) {
             cc_load_policy: 0, iv_load_policy: 3, rel: 0, disablekb: 1, mute: 1,
             ...(location.protocol.startsWith('http') ? { origin: location.origin } : {})
         },
-        events: { onReady: () => refreshControls(slot) }
+        events: {
+            onReady: () => refreshControls(slot),
+            onError: e => { if ([100, 101, 150, 153].includes(e.data)) errored[slot] = true; }
+        }
     });
 }
 
@@ -505,6 +511,37 @@ renderChannels();
 document.body.classList.toggle('mini', miniMode);
 document.getElementById('miniBtn').classList.toggle('on', miniMode);
 document.getElementById('miniBtn').onclick = () => { miniMode = !miniMode; applyMiniMode(); };
+
+// ---------- stall watchdog: reload streams stuck on the loading spinner ----------
+function currentId(slot) {
+    if (SLOTS.includes(slot)) return (slot === 'br' && miniMode) ? null : state[slot];
+    return miniMode ? miniIds[slot] : null;
+}
+function reloadSlot(slot) {
+    const p = players[slot], id = currentId(slot);
+    if (!p || !id) return;
+    p.loadVideoById(id);
+    if (audioSlot !== slot) p.mute();
+}
+setInterval(() => {
+    if (!apiReady || document.hidden || navigator.onLine === false) return;
+    const now = Date.now();
+    ALL_SLOTS.forEach(slot => {
+        const p = players[slot], id = currentId(slot);
+        const w = watch[slot] || (watch[slot] = { t: -1, since: now, tries: 0 });
+        if (!p || !id || !p.getPlayerState || errored[slot]) { w.since = now; w.tries = 0; return; }
+        let st, t;
+        try { st = p.getPlayerState(); t = p.getCurrentTime(); } catch { return; }
+        if (st === 1 && t !== w.t) { w.t = t; w.since = now; w.tries = 0; return; } // playing and advancing
+        w.t = t;
+        const limit = Math.min(10000 * 2 ** w.tries, 60000);  // retry after 10s, 20s, 40s, then every 60s
+        if (now - w.since > limit) { w.tries++; w.since = now; reloadSlot(slot); }
+    });
+}, 2000);
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) ALL_SLOTS.forEach(sl => { if (watch[sl]) watch[sl].since = Date.now(); });
+});
+window.addEventListener('online', () => ALL_SLOTS.forEach(sl => { if (watch[sl]) { watch[sl].since = 0; watch[sl].tries = 0; } }));
 
 // ---------- fullscreen / toolbar ----------
 const root = document.documentElement;
