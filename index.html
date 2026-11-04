@@ -285,7 +285,13 @@ function buildTile(slot) {
         else if (a === 'live' && p) { p.seekTo(1e9, true); p.playVideo(); }
     });
     panel.querySelector('.chips').addEventListener('click', e => {
-        const i = e.target.closest('.chip')?.dataset.i;
+        const chipEl = e.target.closest('.chip');
+        if (!chipEl) return;
+        if (chipEl.dataset.blank) {   // blank channel: switch this tile off
+            if (!document.body.classList.contains('editing')) { setVideo(slot, null); input.value = ''; }
+            return;
+        }
+        const i = chipEl.dataset.i;
         if (i == null) return;
         if (e.target.closest('.chip').dataset.del) {
             channels.splice(+i, 1); saveChannels(); renderChannels();
@@ -352,6 +358,11 @@ function renderChannels() {
     SLOTS.forEach(slot => {
         const box = tiles[slot].querySelector('.chips');
         box.textContent = '';
+        const off = document.createElement('button');
+        off.className = 'chip' + (state[slot] ? '' : ' active');
+        off.dataset.blank = 1;
+        off.textContent = '⏻ Off';
+        box.appendChild(off);
         if (!channels.length) {
             const n = document.createElement('span');
             n.className = 'none';
